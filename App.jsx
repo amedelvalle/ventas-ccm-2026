@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 import { Upload, ChevronDown, Check, X, AlertCircle, Database, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react'
-import { getUltimaCarga, getCargas, uploadData, getResumen, getIngresoPorArea, getIngresoPorDia, getDetalleArticulo, getComparativaAnios, getConsultasSubgrupo, getConsultasResumen, getTrimestres } from './db'
+import { getUltimaCarga, getCargas, uploadData, getResumen, getIngresoPorArea, getIngresoPorDia, getDetalleArticulo, getComparativaAnios, getConsultasSubgrupo, getConsultasResumen, getTrimestres, getEstudiosCV } from './db'
 import { parseExcel } from './parseExcel'
 
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
@@ -9,6 +9,7 @@ const MS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic
 // Consistent unique colors per area
 const AC={'LABORATORIO CLINICO':'#2563EB','LABORATORIO CARDIOVASCULAR':'#DC2626','SERVICIOS MÉDICOS':'#059669','BOTIQUIN':'#D97706','LABORATORIO DE IMAGENES':'#7C3AED'}
 const COLORS=['#2563EB','#059669','#D97706','#DC2626','#7C3AED','#DB2777','#0891B2','#84cc16','#EA580C','#6366f1']
+const CV_COLORS={'Electrocardiograma':'#2563EB','Ecocardiograma':'#DC2626','HOLTER':'#D97706','MAPA':'#059669','Prueba de esfuerzo':'#7C3AED','HOLTER DOMICIALIAR':'#0891B2'}
 const fmt=n=>n==null?'-':'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
 const fmtK=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return'$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return'$'+(n/1e3).toFixed(1)+'K';return fmt(n)}
 const fmtN=n=>n==null?'-':Number(n).toLocaleString('en-US')
@@ -60,7 +61,7 @@ function Sel({value,onChange,options,label,width=160}){
 function Badge({v,type='blue'}){const m={blue:['#EFF6FF','#2563EB'],green:['#ECFDF5','#059669'],amber:['#FFFBEB','#D97706'],red:['#FEF2F2','#DC2626'],purple:['#F5F3FF','#7C3AED']};const[bg,c]=m[type]||m.blue;return<span style={{display:'inline-block',padding:'2px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:bg,color:c}}>{v}</span>}
 const TH=({children,align='left'})=><th style={{textAlign:align,padding:'8px 10px',color:'#6B7280',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'.05em'}}>{children}</th>
 const tt={contentStyle:{background:'#fff',border:'1px solid #E5E7EB',borderRadius:10,fontSize:12,boxShadow:'0 4px 12px rgba(0,0,0,.08)'}}
-const TABS=[{id:'resumen',label:'Resumen'},{id:'areas',label:'Por Área'},{id:'diario',label:'Diario'},{id:'articulos',label:'Artículos'},{id:'consultas',label:'Consultas'},{id:'comparativo',label:'Comparativo'},{id:'cargar',label:'Cargar Datos'}]
+const TABS=[{id:'resumen',label:'Resumen'},{id:'areas',label:'Por Área'},{id:'diario',label:'Diario'},{id:'cardiovascular',label:'Cardiovascular'},{id:'articulos',label:'Artículos'},{id:'consultas',label:'Consultas'},{id:'comparativo',label:'Comparativo'},{id:'cargar',label:'Cargar Datos'}]
 
 export default function App(){
   const [tab,setTab]=useState('resumen')
@@ -70,11 +71,12 @@ export default function App(){
   const [aD,setAD]=useState([]),[dD,setDD]=useState([]),[arD,setArD]=useState([])
   const [coD,setCoD]=useState([]),[suD,setSuD]=useState([])
   const [conD,setConD]=useState([]),[triD,setTriD]=useState([])
+  const [cvD,setCvD]=useState([])
   const [ld,setLd]=useState(true);const iRef=useRef(null)
 
   useEffect(()=>{(async()=>{setLd(true);const[u,r,c]=await Promise.all([getUltimaCarga(),getResumen(),getCargas()]);setUc(u);setRes(r);setCgs(c);if(r.length>0){const ys=[...new Set(r.map(x=>x.anio))].sort();setFY(String(ys[ys.length-1]))}else setTab('cargar');setLd(false)})()},[])
 
-  useEffect(()=>{if(!fY)return;(async()=>{const[a,d,ar,co,su,cn,tr]=await Promise.all([getIngresoPorArea(Number(fY),fM),getIngresoPorDia(Number(fY),fM),getDetalleArticulo(Number(fY),fM,fT),getComparativaAnios(fY,fT),getConsultasSubgrupo(Number(fY),fM,fT),getConsultasResumen(Number(fY),fM),getTrimestres(fY,fT)]);setAD(a);setDD(d);setArD(ar);setCoD(co);setSuD(su);setConD(cn);setTriD(tr)})()},[fY,fM,fT])
+  useEffect(()=>{if(!fY)return;(async()=>{const[a,d,ar,co,su,cn,tr,cv]=await Promise.all([getIngresoPorArea(Number(fY),fM),getIngresoPorDia(Number(fY),fM),getDetalleArticulo(Number(fY),fM,fT),getComparativaAnios(fY,fT),getConsultasSubgrupo(Number(fY),fM,fT),getConsultasResumen(Number(fY),fM),getTrimestres(fY,fT),getEstudiosCV(Number(fY),fM)]);setAD(a);setDD(d);setArD(ar);setCoD(co);setSuD(su);setConD(cn);setTriD(tr);setCvD(cv)})()},[fY,fM,fT])
 
   const yrs=useMemo(()=>[...new Set(res.map(r=>String(r.anio)))].sort(),[res])
   const tps=useMemo(()=>{const t=[...new Set(aD.map(r=>normTipo(r.tipo_inventario)))];return['Todos',...t]},[aD])
@@ -119,20 +121,52 @@ export default function App(){
     return Object.values(m).sort((a,b)=>b.neto-a.neto).slice(0,15)
   },[suD])
 
+  // ── Cardiovascular ──
+  const cvAgg=useMemo(()=>{
+    if(!cvD.length) return null
+    // KPIs
+    const totEst=cvD.reduce((s,r)=>s+Number(r.total_estudios),0)
+    const totNeto=cvD.reduce((s,r)=>s+Number(r.total_neto),0)
+    // Dias laborados = unique months' dias (take max per month since all estudios share same days)
+    const diasByMes={};cvD.forEach(r=>{const k=r.mes;diasByMes[k]=Math.max(diasByMes[k]||0,Number(r.dias_laborados))})
+    const totalDias=Object.values(diasByMes).reduce((s,d)=>s+d,0)
+    const estPorDia=totalDias?totEst/totalDias:0
+
+    // YoY - need previous year data; we'll compute from what we have if fY filter
+    // (previous year data not in cvD since it's filtered, so trend comes from resumen)
+
+    // By estudio (aggregate across months)
+    const byEst={};cvD.forEach(r=>{const k=r.estudio;if(!byEst[k])byEst[k]={estudio:k,estudios:0,neto:0};byEst[k].estudios+=Number(r.total_estudios);byEst[k].neto+=Number(r.total_neto)})
+    const estudios=Object.values(byEst).sort((a,b)=>b.neto-a.neto)
+    estudios.forEach(e=>{e.pct=totNeto?(e.neto/totNeto*100):0;e.promDia=totalDias?(e.estudios/totalDias):0})
+
+    // Monthly stacked area chart data
+    const allEst=[...new Set(cvD.map(r=>r.estudio))]
+    const byMonth={};cvD.forEach(r=>{if(!byMonth[r.mes])byMonth[r.mes]={mes:MS[r.mes-1],mi:r.mes};byMonth[r.mes][r.estudio]=Number(r.total_estudios)})
+    const monthlyChart=Object.entries(byMonth).sort(([a],[b])=>a-b).map(([,v])=>v)
+
+    // Monthly ranking (by neto/dia)
+    const monthAgg={};cvD.forEach(r=>{if(!monthAgg[r.mes])monthAgg[r.mes]={mes:MS[r.mes-1],mi:r.mes,estudios:0,neto:0,dias:0};monthAgg[r.mes].estudios+=Number(r.total_estudios);monthAgg[r.mes].neto+=Number(r.total_neto);monthAgg[r.mes].dias=Math.max(monthAgg[r.mes].dias,Number(r.dias_laborados))})
+    const monthRank=Object.values(monthAgg).map(m=>({...m,estDia:m.dias?(m.estudios/m.dias):0,netoDia:m.dias?(m.neto/m.dias):0})).sort((a,b)=>b.netoDia-a.netoDia)
+    const bestM=monthRank[0],worstM=monthRank[monthRank.length-1]
+
+    return{totEst,totNeto,totalDias,estPorDia,estudios,allEst,monthlyChart,monthRank,bestM,worstM}
+  },[cvD])
+
   if(ld)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'#F6F7FB'}}><div><div style={{width:44,height:44,border:'3px solid #E5E7EB',borderTopColor:'#2563EB',borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 14px'}}/><span style={{color:'#6B7280',fontSize:14}}>Cargando...</span></div></div>
 
   return <div style={{background:'#F6F7FB',minHeight:'100vh'}}>
-    <div style={{maxWidth:1400,margin:'0 auto',padding:'24px 24px 0'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:20,paddingBottom:16,borderBottom:'2px solid #2563EB',flexWrap:'wrap',gap:12}}>
+    <div className="app-wrap">
+      <div className="header-top">
         <div><h1 style={{fontFamily:"'Fraunces',serif",fontSize:'1.6rem',fontWeight:800,color:'#1D4ED8',letterSpacing:'-0.5px'}}>MedLab Analytics</h1>
           <div style={{fontSize:12,color:'#6B7280',marginTop:2}}>Dashboard de Gestión — Clínica CCM, El Salvador</div></div>
         {uc?.ultima_fecha&&<span style={{fontSize:12,color:'#6B7280',background:'#fff',border:'1px solid #E5E7EB',padding:'6px 14px',borderRadius:20,boxShadow:'0 1px 2px rgba(0,0,0,.04)'}}>📅 Hasta {uc.ultima_fecha} · {fmtN(uc.total_registros)} registros</span>}
       </div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:12}}>
-        <div style={{display:'flex',gap:2,background:'#fff',borderRadius:12,padding:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)',overflowX:'auto'}}>
+      <div className="header-bar">
+        <div className="tabs-wrap">
           {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'9px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,color:tab===t.id?'#fff':'#6B7280',background:tab===t.id?'#2563EB':'none',border:'none',fontFamily:'inherit',whiteSpace:'nowrap'}}>{t.label}</button>)}
         </div>
-        {has&&tab!=='cargar'&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        {has&&tab!=='cargar'&&<div className="filters-wrap">
           <Sel label="Año" value={fY} onChange={v=>{setFY(v);setFM(null)}} options={yrs} width={100}/>
           {tab!=='comparativo'&&<Sel label="Mes" value={fM} onChange={setFM} options={[{value:null,label:'Todos'},...MESES.map((m,i)=>({value:i,label:m}))]} width={140}/>}
           {['articulos','comparativo','areas'].includes(tab)&&<Sel label="Área" value={fT} onChange={setFT} options={tps} width={200}/>}
@@ -167,19 +201,19 @@ export default function App(){
 
       {/* RESUMEN */}
       {tab==='resumen'&&ov&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:16}}>
+        <div className="g4 mb16">
           <KPI label="Ingreso Neto" value={fmtK(ov.tN)} trend={ov.tr} sub={ov.tr!=null?'vs año anterior':null} color="grn" icon="💰"/>
           <KPI label="Ingreso Bruto" value={fmtK(ov.tB)} sub={`IVA: ${fmtK(ov.tB-ov.tN)}`} color="blue" icon="📊"/>
           <KPI label="Total Servicios" value={fmtN(ov.tQ)} sub={`${ov.dias} días laborados`} color="pur" icon="🎯"/>
           <KPI label="Promedio Diario" value={fmt(ov.pD)} sub="ingreso neto/día" color="amb" icon="📅"/>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <div className="g4 mb20">
           <KPI label="Promedio Mensual" value={fmtK(ov.pM)} sub={`${ov.mo.length} meses`} color="cyn"/>
           <KPI label="Mejor Mes ($/día)" value={ov.bm?ov.bm.mes:'—'} sub={ov.bm?`${fmt(ov.bm.pd)}/día · ${ov.bm.dias}d`:''} color="grn"/>
           <KPI label="Mayor Facturación" value={ov.mx?ov.mx.mes:'—'} sub={ov.mx?fmtK(ov.mx.neto):''} color="blue"/>
           <KPI label="Menor Prom/Día" value={ov.wm?ov.wm.mes:'—'} sub={ov.wm?`${fmt(ov.wm.pd)}/día · ${ov.wm.dias}d`:''} color="red"/>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14,marginBottom:20}}>
+        <div className="g21 mb20">
           <Card title="Tendencia Mensual" dot="#2563EB">
             <ResponsiveContainer width="100%" height={280}><AreaChart data={ov.mo}><defs><linearGradient id="gN" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563EB" stopOpacity={0.12}/><stop offset="100%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="mes" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v/1e3).toFixed(0)+'K'}/>
@@ -216,7 +250,7 @@ export default function App(){
             {aBar.tipos.map((t,i)=>{const n=normTipo(t);return<Bar key={n} dataKey={n} fill={AC[n]||COLORS[i%COLORS.length]} radius={[4,4,0,0]}/>})}
           </BarChart></ResponsiveContainer>
         </Card>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+        <div className="g2">
           <Card title="Detalle por Área" dot="#059669">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
               {['Área','Neto','Cantidad','%'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
@@ -242,7 +276,7 @@ export default function App(){
 
       {/* DIARIO */}
       {tab==='diario'&&dAn&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <div className="g4 mb20">
           <KPI label="Promedio por Día" value={fmt(dAn.avg)} sub={`${dAn.tot} días laborados`} color="blue" icon="📊"/>
           <KPI label="Mejor Día" value={`Día ${dAn.b.dia}`} sub={fmt(dAn.b.neto)} color="grn" icon="🏆"/>
           <KPI label="Peor Día" value={`Día ${dAn.w.dia}`} sub={fmt(dAn.w.neto)} color="red" icon="📉"/>
@@ -256,9 +290,66 @@ export default function App(){
         </Card>
       </div>}
 
+      {/* CARDIOVASCULAR */}
+      {tab==='cardiovascular'&&cvAgg&&<div>
+        <div className="g4 mb16">
+          <KPI label="Total Estudios" value={fmtN(cvAgg.totEst)} sub={`${cvAgg.totalDias} días laborados`} color="red" icon="❤️"/>
+          <KPI label="Ingreso Neto" value={fmtK(cvAgg.totNeto)} color="blue" icon="💰"/>
+          <KPI label="Estudios/Día" value={cvAgg.estPorDia.toFixed(1)} sub="promedio diario" color="amb" icon="📊"/>
+          <KPI label="Mejor Mes ($/día)" value={cvAgg.bestM?cvAgg.bestM.mes:'—'} sub={cvAgg.bestM?`${fmt(cvAgg.bestM.netoDia)}/día · ${cvAgg.bestM.estDia.toFixed(1)} est/día`:''} color="grn" icon="🏆"/>
+        </div>
+
+        <div className="g32 mb20">
+          <Card title="Volumen Mensual por Estudio" dot="#DC2626">
+            <ResponsiveContainer width="100%" height={300}><BarChart data={cvAgg.monthlyChart}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/>
+              <XAxis dataKey="mes" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/>
+              <Tooltip {...tt}/><Legend wrapperStyle={{fontSize:11}}/>
+              {cvAgg.allEst.map((e,i)=><Bar key={e} dataKey={e} stackId="a" fill={CV_COLORS[e]||COLORS[i%COLORS.length]} radius={i===cvAgg.allEst.length-1?[4,4,0,0]:[0,0,0,0]}/>)}
+            </BarChart></ResponsiveContainer>
+          </Card>
+          <Card title="Composición por Estudio" dot="#D97706">
+            <ResponsiveContainer width="100%" height={180}><PieChart><Pie data={cvAgg.estudios} dataKey="estudios" nameKey="estudio" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} strokeWidth={0}>
+              {cvAgg.estudios.map((e,i)=><Cell key={i} fill={CV_COLORS[e.estudio]||COLORS[i%COLORS.length]}/>)}</Pie><Tooltip {...tt}/></PieChart></ResponsiveContainer>
+            <div style={{marginTop:8}}>{cvAgg.estudios.map((e,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:12,marginBottom:5}}>
+              <span style={{width:8,height:8,borderRadius:3,background:CV_COLORS[e.estudio]||COLORS[i%COLORS.length],flexShrink:0}}/>
+              <span style={{flex:1,color:'#6B7280'}}>{e.estudio}</span>
+              <span style={{fontWeight:600}}>{e.pct.toFixed(0)}%</span>
+            </div>)}</div>
+          </Card>
+        </div>
+
+        <Card title="Detalle por Estudio" dot="#2563EB" style={{marginBottom:20}}>
+          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
+            {['Estudio','Cantidad','Ingreso Neto','Prom/Día','% Ingreso CV'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
+          </tr></thead><tbody>{cvAgg.estudios.map((e,i)=><tr key={i} style={{borderBottom:'1px solid #F3F4F6'}} onMouseEnter={ev=>ev.currentTarget.style.background='#FAFBFE'} onMouseLeave={ev=>ev.currentTarget.style.background='transparent'}>
+            <td style={{padding:'8px 10px',fontWeight:600,display:'flex',alignItems:'center',gap:8}}><span style={{width:8,height:8,borderRadius:3,background:CV_COLORS[e.estudio]||COLORS[i%COLORS.length]}}/>{e.estudio}</td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}>{fmtN(e.estudios)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right',fontWeight:600}}>{fmt(e.neto)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}>{e.promDia.toFixed(1)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}><Badge v={e.pct.toFixed(1)+'%'} type={e.pct>=20?'blue':'amber'}/></td>
+          </tr>)}</tbody></table></div>
+        </Card>
+
+        <Card title="Ranking Mensual — Facturación CV por Día" dot="#7C3AED">
+          <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
+            {['#','Mes','Estudios','Neto','Días Lab.','Est/Día','$/Día'].map((h,i)=><TH key={i} align={i>1?'right':'left'}>{h}</TH>)}
+          </tr></thead><tbody>{cvAgg.monthRank.map((r,i)=><tr key={i} style={{borderBottom:'1px solid #F3F4F6'}}>
+            <td style={{padding:'8px 10px',color:'#9CA3AF'}}>{i+1}</td>
+            <td style={{padding:'8px 10px',fontWeight:600}}>{r.mes}</td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}>{fmtN(r.estudios)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right',fontWeight:600}}>{fmt(r.neto)}</td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}>{r.dias}</td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}><Badge v={r.estDia.toFixed(1)} type={i<3?'green':i>=cvAgg.monthRank.length-2?'red':'blue'}/></td>
+            <td style={{padding:'8px 10px',textAlign:'right'}}><Badge v={fmt(r.netoDia)} type={i<3?'green':i>=cvAgg.monthRank.length-2?'red':'blue'}/></td>
+          </tr>)}</tbody></table></div>
+        </Card>
+      </div>}
+
       {/* ARTÍCULOS */}
       {tab==='articulos'&&<div>
-        {pS&&<div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        {pS&&<div className="g4 mb20">
           <KPI label="Artículos Distintos" value={fmtN(pS.total)} color="blue" icon="📋"/>
           <KPI label="80% del Ingreso" value={`${pS.p} artículos`} sub={`${((pS.p/pS.total)*100).toFixed(0)}% del catálogo`} color="pur" icon="🎯"/>
           <KPI label="Top 5" value={`${pS.p5.toFixed(1)}%`} sub="del ingreso" color="grn" icon="⭐"/>
@@ -284,13 +375,13 @@ export default function App(){
 
       {/* CONSULTAS */}
       {tab==='consultas'&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <div className="g4 mb20">
           {['CARDIOLOGIA','ENDOCRINOLOGIA'].map(esp=>{const d=conAgg.totByEsp[esp];if(!d)return null;return[
             <KPI key={esp+'t'} label={`${esp} — Total`} value={fmtN(d.consultas)} sub={fmt(d.neto)} color={esp==='CARDIOLOGIA'?'red':'grn'} icon={esp==='CARDIOLOGIA'?'❤️':'🧬'}/>,
             <KPI key={esp+'i'} label={`${esp} — Iniciales`} value={fmtN(d.iniciales)} sub={`${d.consultas?(d.iniciales/d.consultas*100).toFixed(0):0}% del total`} color={esp==='CARDIOLOGIA'?'amb':'cyn'}/>
           ]}).flat().filter(Boolean)}
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
+        <div className="g2 mb20">
           {['CARDIOLOGIA','ENDOCRINOLOGIA'].map(esp=>{
             const mData=conAgg.moArr.filter(r=>r.esp===esp)
             const chartData=mData.map(r=>({mes:r.mes,Iniciales:r.iniciales,Seguimiento:r.seguimiento,PromDia:r.dias?(r.consultas/r.dias):0}))
