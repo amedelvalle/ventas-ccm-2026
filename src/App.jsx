@@ -66,7 +66,7 @@ const TABS=[{id:'resumen',label:'Resumen'},{id:'areas',label:'Por Área'},{id:'d
 export default function App(){
   const [tab,setTab]=useState('resumen')
   const [fY,setFY]=useState(null),[fM,setFM]=useState(null),[fT,setFT]=useState('Todos')
-  const [upRes,setUpRes]=useState(null),[uping,setUping]=useState(false)
+  const [upRes,setUpRes]=useState(null),[uping,setUping]=useState(false),[showAllCargas,setShowAllCargas]=useState(false)
   const [uc,setUc]=useState(null),[cgs,setCgs]=useState([]),[res,setRes]=useState([])
   const [aD,setAD]=useState([]),[dD,setDD]=useState([]),[arD,setArD]=useState([])
   const [coD,setCoD]=useState([]),[suD,setSuD]=useState([])
@@ -110,7 +110,7 @@ export default function App(){
     // Per especialidad totals
     const totByEsp={};conD.forEach(r=>{if(!totByEsp[r.especialidad])totByEsp[r.especialidad]={consultas:0,neto:0,iniciales:0,seguimiento:0,otros:0,dias:0};totByEsp[r.especialidad].consultas+=Number(r.total_consultas);totByEsp[r.especialidad].neto+=Number(r.total_neto);if(r.tipo_consulta==='Inicial')totByEsp[r.especialidad].iniciales+=Number(r.total_consultas);else if(r.tipo_consulta==='Seguimiento')totByEsp[r.especialidad].seguimiento+=Number(r.total_consultas);else totByEsp[r.especialidad].otros+=Number(r.total_consultas)})
     // Monthly trend
-    const monthly={};conD.forEach(r=>{const k=`${r.mes}-${r.especialidad}`;if(!monthly[k])monthly[k]={mes:MS[r.mes-1],mi:r.mes,esp:r.especialidad,consultas:0,iniciales:0,seguimiento:0,dias:Number(r.dias_laborados)};monthly[k].consultas+=Number(r.total_consultas);if(r.tipo_consulta==='Inicial')monthly[k].iniciales+=Number(r.total_consultas);if(r.tipo_consulta==='Seguimiento')monthly[k].seguimiento+=Number(r.total_consultas);monthly[k].dias=Math.max(monthly[k].dias,Number(r.dias_laborados))})
+    const monthly={};conD.forEach(r=>{const k=`${r.mes}-${r.especialidad}`;if(!monthly[k])monthly[k]={mes:MS[r.mes-1],mi:r.mes,esp:r.especialidad,consultas:0,iniciales:0,seguimiento:0,otros:0,dias:Number(r.dias_laborados)};monthly[k].consultas+=Number(r.total_consultas);if(r.tipo_consulta==='Inicial')monthly[k].iniciales+=Number(r.total_consultas);else if(r.tipo_consulta==='Seguimiento')monthly[k].seguimiento+=Number(r.total_consultas);else monthly[k].otros+=Number(r.total_consultas);monthly[k].dias=Math.max(monthly[k].dias,Number(r.dias_laborados))})
     const moArr=Object.values(monthly).sort((a,b)=>a.mi-b.mi)
     return{byEsp:Object.values(byEsp),totByEsp,moArr}
   },[conD])
@@ -156,17 +156,17 @@ export default function App(){
   if(ld)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'#F6F7FB'}}><div><div style={{width:44,height:44,border:'3px solid #E5E7EB',borderTopColor:'#2563EB',borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 14px'}}/><span style={{color:'#6B7280',fontSize:14}}>Cargando...</span></div></div>
 
   return <div style={{background:'#F6F7FB',minHeight:'100vh'}}>
-    <div style={{maxWidth:1400,margin:'0 auto',padding:'24px 24px 0'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:20,paddingBottom:16,borderBottom:'2px solid #2563EB',flexWrap:'wrap',gap:12}}>
+    <div className="app-wrap">
+      <div className="header-top">
         <div><h1 style={{fontFamily:"'Fraunces',serif",fontSize:'1.6rem',fontWeight:800,color:'#1D4ED8',letterSpacing:'-0.5px'}}>MedLab Analytics</h1>
           <div style={{fontSize:12,color:'#6B7280',marginTop:2}}>Dashboard de Gestión — Clínica CCM, El Salvador</div></div>
         {uc?.ultima_fecha&&<span style={{fontSize:12,color:'#6B7280',background:'#fff',border:'1px solid #E5E7EB',padding:'6px 14px',borderRadius:20,boxShadow:'0 1px 2px rgba(0,0,0,.04)'}}>📅 Hasta {uc.ultima_fecha} · {fmtN(uc.total_registros)} registros</span>}
       </div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:12}}>
-        <div style={{display:'flex',gap:2,background:'#fff',borderRadius:12,padding:4,boxShadow:'0 1px 3px rgba(0,0,0,.06)',overflowX:'auto'}}>
+      <div className="header-bar">
+        <div className="tabs-wrap">
           {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'9px 16px',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,color:tab===t.id?'#fff':'#6B7280',background:tab===t.id?'#2563EB':'none',border:'none',fontFamily:'inherit',whiteSpace:'nowrap'}}>{t.label}</button>)}
         </div>
-        {has&&tab!=='cargar'&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        {has&&tab!=='cargar'&&<div className="filters-wrap">
           <Sel label="Año" value={fY} onChange={v=>{setFY(v);setFM(null)}} options={yrs} width={100}/>
           {tab!=='comparativo'&&<Sel label="Mes" value={fM} onChange={setFM} options={[{value:null,label:'Todos'},...MESES.map((m,i)=>({value:i,label:m}))]} width={140}/>}
           {['articulos','comparativo','areas'].includes(tab)&&<Sel label="Área" value={fT} onChange={setFT} options={tps} width={200}/>}
@@ -191,29 +191,32 @@ export default function App(){
           :<><div style={{width:52,height:52,borderRadius:14,background:'#EFF6FF',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}><Upload size={22} color="#2563EB"/></div><div style={{fontSize:15,fontWeight:600,marginBottom:4}}>Arrastrá tu archivo Excel acá</div><div style={{fontSize:13,color:'#9CA3AF'}}>o hacé clic · .xlsx, .xls, .csv</div></>}
         </div>
         {cgs.length>0&&<div style={{marginTop:32}}><div style={{fontSize:13,fontWeight:600,marginBottom:12,display:'flex',alignItems:'center',gap:6}}><Clock size={14}/>Historial</div>
-          {cgs.slice(0,8).map((c,i)=><div key={i} style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:10,padding:'12px 16px',fontSize:13,marginBottom:8}}>
+          {cgs.slice(0,showAllCargas?cgs.length:3).map((c,i)=><div key={i} style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:10,padding:'12px 16px',fontSize:13,marginBottom:8}}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}><b>{c.nombre_archivo}</b><span style={{color:'#9CA3AF',fontSize:11}}>{new Date(c.created_at).toLocaleString()}</span></div>
             <span style={{color:'#6B7280'}}>{c.fecha_inicio}→{c.fecha_fin} · <span style={{color:'#059669'}}>{fmtN(c.filas_nuevas)} new</span>, {fmtN(c.filas_duplicadas)} dup</span>
-          </div>)}</div>}
+          </div>)}
+          {cgs.length>3&&!showAllCargas&&<button onClick={()=>setShowAllCargas(true)} style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:8,padding:'8px 16px',fontSize:12,fontWeight:600,color:'#2563EB',cursor:'pointer',width:'100%'}}>Ver {cgs.length-3} cargas más</button>}
+          {showAllCargas&&cgs.length>3&&<button onClick={()=>setShowAllCargas(false)} style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:8,padding:'8px 16px',fontSize:12,fontWeight:600,color:'#9CA3AF',cursor:'pointer',width:'100%'}}>Mostrar menos</button>}
+        </div>}
       </div>}
 
       {!has&&tab!=='cargar'&&<div style={{textAlign:'center',padding:'80px 24px'}}><Database size={48} style={{color:'#D1D5DB',margin:'0 auto 16px'}}/><h3 style={{fontSize:18,fontWeight:600,marginBottom:8}}>Sin datos</h3><p style={{color:'#9CA3AF'}}>Cargá tu Excel en "Cargar Datos".</p></div>}
 
       {/* RESUMEN */}
       {tab==='resumen'&&ov&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:16}}>
+        <div className="g4 mb16">
           <KPI label="Ingreso Neto" value={fmtK(ov.tN)} trend={ov.tr} sub={ov.tr!=null?'vs año anterior':null} color="grn" icon="💰"/>
           <KPI label="Ingreso Bruto" value={fmtK(ov.tB)} sub={`IVA: ${fmtK(ov.tB-ov.tN)}`} color="blue" icon="📊"/>
           <KPI label="Total Servicios" value={fmtN(ov.tQ)} sub={`${ov.dias} días laborados`} color="pur" icon="🎯"/>
           <KPI label="Promedio Diario" value={fmt(ov.pD)} sub="ingreso neto/día" color="amb" icon="📅"/>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <div className="g4 mb20">
           <KPI label="Promedio Mensual" value={fmtK(ov.pM)} sub={`${ov.mo.length} meses`} color="cyn"/>
           <KPI label="Mejor Mes ($/día)" value={ov.bm?ov.bm.mes:'—'} sub={ov.bm?`${fmt(ov.bm.pd)}/día · ${ov.bm.dias}d`:''} color="grn"/>
           <KPI label="Mayor Facturación" value={ov.mx?ov.mx.mes:'—'} sub={ov.mx?fmtK(ov.mx.neto):''} color="blue"/>
           <KPI label="Menor Prom/Día" value={ov.wm?ov.wm.mes:'—'} sub={ov.wm?`${fmt(ov.wm.pd)}/día · ${ov.wm.dias}d`:''} color="red"/>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14,marginBottom:20}}>
+        <div className="g21 mb20">
           <Card title="Tendencia Mensual" dot="#2563EB">
             <ResponsiveContainer width="100%" height={280}><AreaChart data={ov.mo}><defs><linearGradient id="gN" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563EB" stopOpacity={0.12}/><stop offset="100%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="mes" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v/1e3).toFixed(0)+'K'}/>
@@ -250,7 +253,7 @@ export default function App(){
             {aBar.tipos.map((t,i)=>{const n=normTipo(t);return<Bar key={n} dataKey={n} fill={AC[n]||COLORS[i%COLORS.length]} radius={[4,4,0,0]}/>})}
           </BarChart></ResponsiveContainer>
         </Card>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+        <div className="g2">
           <Card title="Detalle por Área" dot="#059669">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
               {['Área','Neto','Cantidad','%'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
@@ -276,30 +279,54 @@ export default function App(){
 
       {/* DIARIO */}
       {tab==='diario'&&dAn&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <div className="g4 mb20">
           <KPI label="Promedio por Día" value={fmt(dAn.avg)} sub={`${dAn.tot} días laborados`} color="blue" icon="📊"/>
           <KPI label="Mejor Día" value={`Día ${dAn.b.dia}`} sub={fmt(dAn.b.neto)} color="grn" icon="🏆"/>
           <KPI label="Peor Día" value={`Día ${dAn.w.dia}`} sub={fmt(dAn.w.neto)} color="red" icon="📉"/>
           <KPI label="Días sobre Promedio" value={`${dAn.ab} de ${dAn.tot}`} sub={`${((dAn.ab/dAn.tot)*100).toFixed(0)}% de los días`} color="pur" icon="✅"/>
         </div>
-        <Card title={`Ingreso Neto por Día${fM!=null?' — '+MESES[fM]:''} ${fY}`} dot="#2563EB">
-          <ResponsiveContainer width="100%" height={380}><BarChart data={dC}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="dia" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v/1e3).toFixed(1)+'K'}/>
-            <Tooltip formatter={v=>fmt(v)} labelFormatter={v=>'Día '+v} {...tt}/><Bar dataKey="neto" fill="#2563EB" radius={[4,4,0,0]} name="Neto"/>
-          </BarChart></ResponsiveContainer>
-        </Card>
+        {fM!=null ? (
+          <Card title={`Ingreso Neto por Día — ${MESES[fM]} ${fY}`} dot="#2563EB">
+            <ResponsiveContainer width="100%" height={380}><BarChart data={dC}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="dia" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v/1e3).toFixed(1)+'K'}/>
+              <Tooltip formatter={v=>fmt(v)} labelFormatter={v=>'Día '+v} {...tt}/><Bar dataKey="neto" fill="#2563EB" radius={[4,4,0,0]} name="Neto"/>
+            </BarChart></ResponsiveContainer>
+          </Card>
+        ) : (
+          <div>
+            <Card title={`Promedio Diario por Mes — ${fY}`} dot="#2563EB" style={{marginBottom:20}}>
+              <ResponsiveContainer width="100%" height={320}><BarChart data={ov?ov.mo:[]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="mes" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v).toFixed(0)}/>
+                <Tooltip formatter={v=>fmt(v)} {...tt}/><Bar dataKey="pd" fill="#2563EB" radius={[4,4,0,0]} name="Prom/Día"/>
+              </BarChart></ResponsiveContainer>
+            </Card>
+            <Card title="Detalle Mensual — Promedio Diario y Días Laborados" dot="#7C3AED">
+              <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
+                {['Mes','Neto Total','Días Lab.','Prom/Día','Servicios','Serv/Día','vs Mes Ant.'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
+              </tr></thead><tbody>{(ov?ov.mo:[]).map((r,i,arr)=>{const prev=i>0?arr[i-1].pd:null;const varPct=prev?pctC(r.pd,prev):null;return<tr key={i} style={{borderBottom:'1px solid #F3F4F6'}}>
+                <td style={{padding:'8px 10px',fontWeight:600}}>{r.mes}</td>
+                <td style={{padding:'8px 10px',textAlign:'right',fontWeight:600}}>{fmt(r.neto)}</td>
+                <td style={{padding:'8px 10px',textAlign:'right'}}>{r.dias}</td>
+                <td style={{padding:'8px 10px',textAlign:'right'}}><Badge v={fmt(r.pd)} type={ov&&r.pd>=ov.pD?'green':'amber'}/></td>
+                <td style={{padding:'8px 10px',textAlign:'right'}}>{fmtN(r.cant)}</td>
+                <td style={{padding:'8px 10px',textAlign:'right'}}>{r.dias?(r.cant/r.dias).toFixed(1):'-'}</td>
+                <td style={{padding:'8px 10px',textAlign:'right'}}>{varPct!=null?<Badge v={`${varPct>0?'+':''}${varPct.toFixed(1)}%`} type={varPct>0?'green':'red'}/>:'-'}</td>
+              </tr>})}</tbody></table></div>
+            </Card>
+          </div>
+        )}
       </div>}
 
       {/* CARDIOVASCULAR */}
       {tab==='cardiovascular'&&cvAgg&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:16}}>
+        <div className="g4 mb16">
           <KPI label="Total Estudios" value={fmtN(cvAgg.totEst)} sub={`${cvAgg.totalDias} días laborados`} color="red" icon="❤️"/>
           <KPI label="Ingreso Neto" value={fmtK(cvAgg.totNeto)} color="blue" icon="💰"/>
           <KPI label="Estudios/Día" value={cvAgg.estPorDia.toFixed(1)} sub="promedio diario" color="amb" icon="📊"/>
           <KPI label="Mejor Mes ($/día)" value={cvAgg.bestM?cvAgg.bestM.mes:'—'} sub={cvAgg.bestM?`${fmt(cvAgg.bestM.netoDia)}/día · ${cvAgg.bestM.estDia.toFixed(1)} est/día`:''} color="grn" icon="🏆"/>
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'3fr 2fr',gap:14,marginBottom:20}}>
+        <div className="g32 mb20">
           <Card title="Volumen Mensual por Estudio" dot="#DC2626">
             <ResponsiveContainer width="100%" height={300}><BarChart data={cvAgg.monthlyChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/>
@@ -349,7 +376,7 @@ export default function App(){
 
       {/* ARTÍCULOS */}
       {tab==='articulos'&&<div>
-        {pS&&<div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        {pS&&<div className="g4 mb20">
           <KPI label="Artículos Distintos" value={fmtN(pS.total)} color="blue" icon="📋"/>
           <KPI label="80% del Ingreso" value={`${pS.p} artículos`} sub={`${((pS.p/pS.total)*100).toFixed(0)}% del catálogo`} color="pur" icon="🎯"/>
           <KPI label="Top 5" value={`${pS.p5.toFixed(1)}%`} sub="del ingreso" color="grn" icon="⭐"/>
@@ -375,13 +402,13 @@ export default function App(){
 
       {/* CONSULTAS */}
       {tab==='consultas'&&<div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <div className="g4 mb20">
           {['CARDIOLOGIA','ENDOCRINOLOGIA'].map(esp=>{const d=conAgg.totByEsp[esp];if(!d)return null;return[
             <KPI key={esp+'t'} label={`${esp} — Total`} value={fmtN(d.consultas)} sub={fmt(d.neto)} color={esp==='CARDIOLOGIA'?'red':'grn'} icon={esp==='CARDIOLOGIA'?'❤️':'🧬'}/>,
             <KPI key={esp+'i'} label={`${esp} — Iniciales`} value={fmtN(d.iniciales)} sub={`${d.consultas?(d.iniciales/d.consultas*100).toFixed(0):0}% del total`} color={esp==='CARDIOLOGIA'?'amb':'cyn'}/>
           ]}).flat().filter(Boolean)}
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
+        <div className="g2 mb20">
           {['CARDIOLOGIA','ENDOCRINOLOGIA'].map(esp=>{
             const mData=conAgg.moArr.filter(r=>r.esp===esp)
             const chartData=mData.map(r=>({mes:r.mes,Iniciales:r.iniciales,Seguimiento:r.seguimiento,PromDia:r.dias?(r.consultas/r.dias):0}))
@@ -395,11 +422,12 @@ export default function App(){
                 <Bar dataKey="Seguimiento" fill={esp==='CARDIOLOGIA'?'#FCA5A5':'#6EE7B7'} radius={[4,4,0,0]} stackId="a"/>
               </BarChart></ResponsiveContainer>
               <div style={{overflowX:'auto',marginTop:12}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
-                {['Mes','Iniciales','Seguim.','Total','Días','Prom/Día'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
+                {['Mes','Iniciales','Seguim.','Otros','Total','Días','Prom/Día'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
               </tr></thead><tbody>{mData.map((r,i)=><tr key={i} style={{borderBottom:'1px solid #F3F4F6'}}>
                 <td style={{padding:'6px 10px',fontWeight:500}}>{r.mes}</td>
                 <td style={{padding:'6px 10px',textAlign:'right'}}>{fmtN(r.iniciales)}</td>
                 <td style={{padding:'6px 10px',textAlign:'right'}}>{fmtN(r.seguimiento)}</td>
+                <td style={{padding:'6px 10px',textAlign:'right',color:'#9CA3AF'}}>{fmtN(r.otros)}</td>
                 <td style={{padding:'6px 10px',textAlign:'right',fontWeight:600}}>{fmtN(r.consultas)}</td>
                 <td style={{padding:'6px 10px',textAlign:'right'}}>{r.dias}</td>
                 <td style={{padding:'6px 10px',textAlign:'right'}}><Badge v={r.dias?(r.consultas/r.dias).toFixed(1):'-'} type={r.dias&&(r.consultas/r.dias)>=8?'green':'amber'}/></td>
@@ -415,7 +443,7 @@ export default function App(){
           {cC.data.length>0?<ResponsiveContainer width="100%" height={340}><BarChart data={cC.data} barGap={6}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="mes" tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v/1e3).toFixed(0)+'K'}/>
             <Tooltip formatter={v=>fmt(v)} {...tt}/><Legend wrapperStyle={{fontSize:12}}/>
-            <Bar dataKey={cC.py} fill="#D1D5DB" radius={[4,4,0,0]} name={cC.py}/><Bar dataKey={cC.cy} fill="#2563EB" radius={[4,4,0,0]} name={cC.cy}/>
+            <Bar dataKey={cC.py} fill="#93C5FD" radius={[4,4,0,0]} name={cC.py}/><Bar dataKey={cC.cy} fill="#2563EB" radius={[4,4,0,0]} name={cC.cy}/>
           </BarChart></ResponsiveContainer>:<div style={{textAlign:'center',padding:48,color:'#9CA3AF'}}>No hay datos del año anterior.</div>}
         </Card>
         <Card title={`Comparativo Trimestral ${triChart.py} vs ${triChart.cy}`} dot="#7C3AED">
@@ -423,7 +451,7 @@ export default function App(){
             <ResponsiveContainer width="100%" height={300}><BarChart data={triChart.data} barGap={8}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" vertical={false}/><XAxis dataKey="q" tick={{fontSize:12,fill:'#6B7280'}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:11,fill:'#6B7280'}} axisLine={false} tickLine={false} tickFormatter={v=>'$'+(v/1e3).toFixed(0)+'K'}/>
               <Tooltip formatter={v=>fmt(v)} {...tt}/><Legend wrapperStyle={{fontSize:12}}/>
-              <Bar dataKey={triChart.py} fill="#D1D5DB" radius={[4,4,0,0]} name={triChart.py}/><Bar dataKey={triChart.cy} fill="#7C3AED" radius={[4,4,0,0]} name={triChart.cy}/>
+              <Bar dataKey={triChart.py} fill="#93C5FD" radius={[4,4,0,0]} name={triChart.py}/><Bar dataKey={triChart.cy} fill="#7C3AED" radius={[4,4,0,0]} name={triChart.cy}/>
             </BarChart></ResponsiveContainer>
             <div style={{overflowX:'auto',marginTop:16}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr style={{borderBottom:'2px solid #E5E7EB',background:'#F6F7FB'}}>
               {['Trimestre',triChart.py,triChart.cy,'Variación'].map((h,i)=><TH key={i} align={i>0?'right':'left'}>{h}</TH>)}
